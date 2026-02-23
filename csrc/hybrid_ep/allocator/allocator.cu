@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 #include "allocator.cuh"
+#include <cstdlib>
 
 // Round-up allocation size to fabric granularity.
 size_t inline get_size_align_to_granularity(size_t size_raw, size_t granularity) {
@@ -12,7 +13,15 @@ size_t inline get_size_align_to_granularity(size_t size_raw, size_t granularity)
 }
 
 ExtendedMemoryAllocator::ExtendedMemoryAllocator() {
-  this->support_fabric_ = support_fabric();
+  //this->support_fabric_ = support_fabric();
+  //**added this to disable fabric on hopper**
+  const char* disable = std::getenv("DEEPEP_DISABLE_FABRIC");
+  if (disable && std::strcmp(disable, "1") == 0) {
+    this->support_fabric_ = false;
+  } else {
+    this->support_fabric_ = support_fabric();
+  }
+  //* modify until here */
   if (gethostname(hostname_, sizeof(hostname_)) != 0) {
     perror("gethostname");
     std::snprintf(hostname_, sizeof(hostname_), "unknown");
