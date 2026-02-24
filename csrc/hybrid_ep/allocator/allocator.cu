@@ -57,7 +57,13 @@ void ExtendedMemoryAllocator::allocate(void** ptr, size_t size_raw) {
   if (enable_fabric_) {
     size_t size = get_size_align_to_granularity(size_raw, fabric_granularity_);
     CUmemGenericAllocationHandle handle;
-    CU_CHECK(cuMemCreate(&handle, size, &fabric_prop_, 0));
+    CUresult result = cuMemCreate(&handle, size, &fabric_prop_, 0);
+    if (result == CUDA_ERROR_NOT_PERMITTED || result == CUDA_ERROR_NOT_SUPPORTED) {
+      enable_fabric_ = false;
+      CUDA_CHECK(cudaMalloc(ptr, size_raw));
+      return;
+    }
+    CU_CHECK(result);
     CU_CHECK(cuMemAddressReserve((CUdeviceptr*)ptr, size, fabric_granularity_, 0, 0));
     CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
     CU_CHECK(cuMemSetAccess((CUdeviceptr)*ptr, size, &access_desc, 1));
