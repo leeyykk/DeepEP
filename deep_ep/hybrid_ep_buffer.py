@@ -5,6 +5,14 @@ import os
 import hybrid_ep_cpp
 
 
+def _ensure_jit_dir() -> None:
+    if os.getenv("DEEPEP_JIT_DIR"):
+        return
+    fallback_dir = "/tmp/deep_ep/jit"
+    os.makedirs(fallback_dir, exist_ok=True)
+    os.environ["DEEPEP_JIT_DIR"] = fallback_dir
+
+
 def indices_to_map(
     topk_idx: torch.Tensor,
     topk_weights: torch.Tensor,
@@ -45,6 +53,7 @@ class HybridEPBuffer:
         num_sms_preprocessing_api: int = 128,
         nvlink_domain_size: int = None,
     ):
+        _ensure_jit_dir()
         self.group = group
         self.rank = self.group.rank()
         self.group_size = self.group.size()
