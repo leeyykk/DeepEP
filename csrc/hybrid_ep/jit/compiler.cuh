@@ -25,6 +25,8 @@ public:
     // Init the flags required by nvcc compiler
     NVCCCompiler(std::string base_path);
 
+    std::string get_jit_dir() const { return jit_dir; }
+
     // Generate the code for jit compile
     std::string get_metadata_preprocessing_code(HybridEpConfigInstance config);
     std::string get_dispatch_code(HybridEpConfigInstance config);
@@ -53,6 +55,7 @@ public:
 
 private:
     std::string base_path;  // The path of the installed package
+    std::string jit_dir;    // The path of the jit cache directory
     std::string flags;      // The flags required by nvcc compiler, which contains the
     // base flags(-O3, -arch...), include files, library files
     std::string nvcc_path;  // The path of the nvcc compiler

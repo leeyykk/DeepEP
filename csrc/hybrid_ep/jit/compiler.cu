@@ -11,8 +11,28 @@ inline std::string get_env(std::string name) {
     return std::string(env);
 }
 
+static std::string resolve_jit_dir(const std::string& base_path) {
+    const char* env = std::getenv("DEEPEP_JIT_DIR");
+    if (env != nullptr && std::strlen(env) > 0) {
+        std::filesystem::create_directories(env);
+        return std::string(env);
+    }
+
+    std::string default_dir = base_path + "/build/jit";
+    std::error_code ec;
+    std::filesystem::create_directories(default_dir, ec);
+    if (!ec) {
+        return default_dir;
+    }
+
+    std::string fallback_dir = "/tmp/deep_ep/jit";
+    std::filesystem::create_directories(fallback_dir);
+    return fallback_dir;
+}
+
 NVCCCompiler::NVCCCompiler(std::string base_path): base_path(base_path) {
     nvcc_path = get_env("CUDA_HOME") + "/bin/nvcc";
+    jit_dir = resolve_jit_dir(base_path);
 
     // Init the flags to compiler
     std::string sm_arch_flags = convert_to_nvcc_arch_flags(SM_ARCH);
@@ -38,7 +58,6 @@ NVCCCompiler::NVCCCompiler(std::string base_path): base_path(base_path) {
 
 std::string NVCCCompiler::build(std::string code, std::string signature, int local_rank) {
     // Create the source directory
-    std::string jit_dir = base_path + "/build/jit";
     std::filesystem::create_directories(jit_dir);
 
     // Get a unique signature for each run
@@ -69,6 +88,11 @@ std::string NVCCCompiler::build(std::string code, std::string signature, int loc
         throw std::runtime_error("Failed to compile the code, compile command: " + compile_command);
     }
 
+    if (!std::filesystem::exists(output_path)) {
+        throw std::runtime_error("JIT output not found at " + output_path +
+                                 "; check write permissions for JIT dir: " + jit_dir);
+    }
+
     // Remove the source file after compilation
     remove(source_path.c_str());
 
@@ -94,7 +118,7 @@ std::any NVCCCompiler::get_instance(std::string library_path, std::string kernel
     }
 
     // Unique the compiled lib from different rank
-    std::string unique_library_path = base_path + "/build/jit/" + kernel_key + ".so";
+    std::string unique_library_path = jit_dir + "/" + kernel_key + ".so";
     std::string unique_command = "mv " + library_path + " " + unique_library_path;
     if(library_path != unique_library_path) {
         auto ret = std::system(unique_command.c_str());
@@ -176,7 +200,7 @@ std::string NVCCCompiler::get_combine_code(HybridEpConfigInstance config) {
 KernelCache::KernelCache(int local_rank, std::string base_path): 
 local_rank(local_rank), base_path(base_path), nvcc_compiler(base_path) {
     // Load all cached kernels from the cache directory
-    std::string cache_dir = base_path + "/build/jit";
+    std::string cache_dir = nvcc_compiler.get_jit_dir();
     std::filesystem::create_directories(cache_dir);
     for (const auto& entry : std::filesystem::directory_iterator(cache_dir)) {
         if (entry.path().extension() == ".so") {
