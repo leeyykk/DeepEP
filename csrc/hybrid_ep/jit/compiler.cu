@@ -13,22 +13,39 @@ inline std::string get_env(std::string name) {
     return std::string(env);
 }
 
+static bool ensure_writable_dir(const std::string& dir_path) {
+    std::error_code ec;
+    std::filesystem::create_directories(dir_path, ec);
+    if (ec) {
+        return false;
+    }
+    std::string probe_path = dir_path + "/.jit_write_test";
+    std::ofstream probe(probe_path, std::ios::out | std::ios::trunc);
+    if (!probe.is_open()) {
+        return false;
+    }
+    probe << "ok";
+    probe.close();
+    std::filesystem::remove(probe_path, ec);
+    return true;
+}
+
 static std::string resolve_jit_dir(const std::string& base_path) {
     const char* env = std::getenv("DEEPEP_JIT_DIR");
     if (env != nullptr && std::strlen(env) > 0) {
-        std::filesystem::create_directories(env);
-        return std::string(env);
+        std::string env_dir = std::string(env);
+        if (ensure_writable_dir(env_dir)) {
+            return env_dir;
+        }
     }
 
     std::string default_dir = base_path + "/build/jit";
-    std::error_code ec;
-    std::filesystem::create_directories(default_dir, ec);
-    if (!ec) {
+    if (ensure_writable_dir(default_dir)) {
         return default_dir;
     }
 
     std::string fallback_dir = "/tmp/deep_ep/jit";
-    std::filesystem::create_directories(fallback_dir);
+    ensure_writable_dir(fallback_dir);
     return fallback_dir;
 }
 
