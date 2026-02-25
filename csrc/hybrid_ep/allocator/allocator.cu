@@ -3,6 +3,7 @@
 
 #include "allocator.cuh"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -73,7 +74,16 @@ void ExtendedMemoryAllocator::allocate(void** ptr, size_t size_raw) {
       CUDA_CHECK(cudaMalloc(ptr, size_raw));
       return;
     }
-    CU_CHECK(result);
+    if (result != CUDA_SUCCESS) {
+      const char* p_err_str = nullptr;
+      if (cuGetErrorString(result, &p_err_str) == CUDA_ERROR_INVALID_VALUE) {
+        p_err_str = "Unrecognized CU error num";
+      }
+      fprintf(stderr,
+              "CU error encountered at: file=%s line=%d, call='cuMemCreate' Reason=%s.\n",
+              __FILE__, __LINE__, p_err_str);
+      abort();
+    }
     CU_CHECK(cuMemAddressReserve((CUdeviceptr*)ptr, size, fabric_granularity_, 0, 0));
     CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
     CU_CHECK(cuMemSetAccess((CUdeviceptr)*ptr, size, &access_desc, 1));

@@ -12,8 +12,9 @@ HybridEPBuffer::HybridEPBuffer(BufferConfig config, int local_rank, int node_ran
       // Currently, inter-node communication is not supported.
       assert(false);
     }
-      
-    remote_allocator.init(/*enable_fabric = */ true);
+    
+    //Modified this code for Hopper
+    remote_allocator.init(/*enable_fabric = */ false);
     allocate_buffer();
 }
 
