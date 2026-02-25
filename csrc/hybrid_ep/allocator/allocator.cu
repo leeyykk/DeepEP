@@ -3,6 +3,9 @@
 
 #include "allocator.cuh"
 
+#include <cstdlib>
+#include <cstring>
+
 // Check if the current device supports fabric.
 bool ExtendedMemoryAllocator::support_fabric() {
   int device_count;
@@ -30,6 +33,11 @@ size_t inline get_size_align_to_granularity(size_t size_raw, size_t granularity)
 void ExtendedMemoryAllocator::init(bool enable_fabric) {
   this->support_fabric_ = this->support_fabric();
   enable_fabric_ = enable_fabric;
+
+  const char* disable_fabric = std::getenv("DEEPEP_DISABLE_FABRIC");
+  if (disable_fabric != nullptr && std::strcmp(disable_fabric, "1") == 0) {
+    enable_fabric_ = false;
+  }
 
   if (support_fabric_ && enable_fabric_) {
     int device_id = -1;
@@ -59,6 +67,8 @@ void ExtendedMemoryAllocator::allocate(void** ptr, size_t size_raw) {
     CUmemGenericAllocationHandle handle;
     CUresult result = cuMemCreate(&handle, size, &fabric_prop_, 0);
     if (result == CUDA_ERROR_NOT_PERMITTED || result == CUDA_ERROR_NOT_SUPPORTED) {
+      fprintf(stderr,
+              "cuMemCreate not permitted/supported; falling back to cudaMalloc.\n");
       enable_fabric_ = false;
       CUDA_CHECK(cudaMalloc(ptr, size_raw));
       return;
