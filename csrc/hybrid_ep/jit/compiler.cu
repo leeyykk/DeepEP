@@ -3,6 +3,8 @@
 
 #include "compiler.cuh"
 
+#include <cstring>
+
 inline std::string get_env(std::string name) {
     const char* env = std::getenv(name.c_str());
     if (env == nullptr) {
